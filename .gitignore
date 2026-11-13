@@ -1,0 +1,11 @@
+data/
+**/__pycache__/
+*.py[cod]
+*.pt
+*.pth
+*.npz
+*.csv
+*.log
+*.err
+**/full/
+**/smoke/

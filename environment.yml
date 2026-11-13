@@ -1,0 +1,50 @@
+# E-PCG environment. Must reproduce identically on:
+#   local : Windows 11, RTX 4060 Ti 8GB   (development, --smoke runs, figures)
+#   remote: Linux,      RTX A4000 16GB    (pretraining, full CV sweeps)
+#
+#   conda env create -f environment.yml
+#   conda activate epcg
+#   python scripts/00_check_env.py        # <-- ALWAYS run this after creating
+#
+# ---------------------------------------------------------------------------
+# WHY THE NUMERICAL STACK COMES FROM CONDA WITH AN EXPLICIT BLAS PIN
+#
+# The pre-existing `protoheart` env on this workstation has numpy 2.2.6 built
+# against generic blas/lapack 3.9.0, while the only BLAS runtime present is
+# `mkl_rt.3.dll`. The provider mismatch makes EVERY LAPACK call hard-crash the
+# interpreter with an access violation and no Python traceback:
+#
+#     np.linalg.solve(np.eye(3) + 0.1, np.ones(3))   -> silent process death
+#     scipy.signal.sosfilt_zi(...)                   -> silent process death
+#     scipy.signal.sosfiltfilt(...) / filtfilt(...)  -> silent process death
+#
+# sosfiltfilt is the zero-phase filter used on every ECG and PCG record, so this
+# would have taken down the entire preprocessing pipeline. Pinning libblas to the
+# openblas provider makes the linkage explicit and keeps both machines identical.
+# ---------------------------------------------------------------------------
+name: epcg
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  # --- numerical stack: conda-forge, OpenBLAS provider pinned explicitly ---
+  - libblas=*=*openblas
+  - numpy=2.2.*
+  - scipy=1.15.*
+  - scikit-learn=1.7.*
+  - pandas=2.3.*
+  - h5py
+  - matplotlib
+  - pyyaml
+  - tqdm
+  - pip
+  - pip:
+      # --- deep learning (cu124 wheels; identical build on both machines) ---
+      - --extra-index-url https://download.pytorch.org/whl/cu124
+      - torch==2.6.0
+      - torchaudio==2.6.0
+      # --- signal / physiology ---
+      - wfdb==4.3.1
+      - neurokit2==0.2.13
+      - librosa==0.11.0
+      - einops==0.8.2
